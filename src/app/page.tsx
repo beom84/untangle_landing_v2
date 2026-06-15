@@ -1185,6 +1185,15 @@ export default function Home() {
               </p>
               <div className={styles.heroActions}>
                 <a
+                  className={styles.ctaSecondary}
+                  href="#features"
+                  onClick={() =>
+                    track("cta_clicked", { location: "hero_learn_more" })
+                  }
+                >
+                  더 알아보기
+                </a>
+                <a
                   className={styles.ctaPrimary}
                   href="#pre-register"
                   onClick={() => track("cta_clicked", { location: "hero" })}
