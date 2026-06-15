@@ -791,23 +791,103 @@ export default function Home() {
     initClarity();
     track("page_viewed", { variant: LANDING_VARIANT });
 
-    const sections = document.querySelectorAll("[data-section]");
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-section]"),
+    );
+    const seenSections = new Set<string>();
+    const sectionRatios = new Map<string, number>();
+    let activeSection: string | null = null;
+    let activeSectionStartedAt = 0;
+
+    const trackSectionDuration = (reason: string) => {
+      if (!activeSection || activeSectionStartedAt === 0) {
+        return;
+      }
+
+      const durationMs = Date.now() - activeSectionStartedAt;
+      if (durationMs > 0) {
+        track("section_duration", {
+          section: activeSection,
+          duration_ms: durationMs,
+          duration_seconds: Number((durationMs / 1000).toFixed(2)),
+          exit_reason: reason,
+        });
+      }
+
+      activeSection = null;
+      activeSectionStartedAt = 0;
+    };
+
+    const updateActiveSection = (reason: string) => {
+      let nextSection: string | null = null;
+      let nextRatio = 0;
+
+      sectionRatios.forEach((ratio, section) => {
+        if (ratio >= 0.3 && ratio > nextRatio) {
+          nextSection = section;
+          nextRatio = ratio;
+        }
+      });
+
+      if (nextSection === activeSection) {
+        return;
+      }
+
+      trackSectionDuration(reason);
+
+      if (nextSection) {
+        activeSection = nextSection;
+        activeSectionStartedAt = Date.now();
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          const section = entry.target.getAttribute("data-section");
+          if (!section) {
+            return;
+          }
+
+          const ratio = entry.isIntersecting ? entry.intersectionRatio : 0;
+          sectionRatios.set(section, ratio);
+
+          if (entry.isIntersecting && ratio >= 0.3 && !seenSections.has(section)) {
+            seenSections.add(section);
             track("section_viewed", {
-              section: entry.target.getAttribute("data-section"),
+              section,
             });
-            observer.unobserve(entry.target);
           }
         });
+
+        updateActiveSection("section_changed");
       },
-      { threshold: 0.3 },
+      { threshold: [0, 0.3, 0.6, 0.9] },
     );
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        trackSectionDuration("page_hidden");
+        return;
+      }
+
+      updateActiveSection("page_visible");
+    };
+
+    const handlePageHide = () => {
+      trackSectionDuration("page_hide");
+    };
+
     sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      observer.disconnect();
+      trackSectionDuration("unmount");
+    };
   }, []);
 
   useEffect(() => {
