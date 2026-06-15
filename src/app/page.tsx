@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { initAmplitude, track } from "@/lib/amplitude";
+import { initClarity } from "@/lib/clarity";
 import type { ContactMode } from "@/lib/contact";
 import { normalizeContactValue, normalizePhoneNumber } from "@/lib/contact";
 import { LANDING_VARIANT, type LandingVariant } from "@/lib/experiment";
@@ -787,6 +788,7 @@ export default function Home() {
 
   useEffect(() => {
     initAmplitude();
+    initClarity();
     track("page_viewed", { variant: LANDING_VARIANT });
 
     const sections = document.querySelectorAll("[data-section]");
@@ -1387,6 +1389,7 @@ export default function Home() {
                           type="tel"
                           name="phone"
                           inputMode="numeric"
+                          data-clarity-mask="true"
                           placeholder="01012345678 또는 010-1234-5678"
                           required
                           value={contactValue}
