@@ -90,18 +90,18 @@ type SurveyStorage = {
   contactMode: ContactMode;
   contactValue: string;
   submissionKey: string;
-  surveyDraft: SurveyDraft;
+  surveyDraft: LegacySurveyDraft;
   surveyCompleted: boolean;
 };
 
-type LegacySurveyDraft = Partial<SurveyDraft> & {
+type LegacySurveyDraft = {
   currentStep?: number;
   thoughtCategory?: string;
   thoughtCategoryOther?: string;
   painMoment?: string;
   currentMethods?: SurveyMethod[];
   currentMethodsOther?: string;
-  biggestGap?: string;
+  biggestGap?: string | BiggestGapOption[];
   biggestGapSelections?: BiggestGapOption[];
   biggestGapOther?: string;
   branchChoice?: string;
