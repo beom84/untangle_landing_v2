@@ -39,45 +39,39 @@ type Faq = {
 };
 
 type SurveyMethod =
+  | "adhd_app"
   | "endure"
   | "notes"
   | "calendar"
   | "ai"
   | "support"
-  | "other";
+  | "none";
 
 type ThoughtCategoryOption =
-  | "work"
-  | "study"
-  | "life_management"
-  | "relationships"
-  | "self_improvement"
-  | "other";
+  | "cant_start"
+  | "time_blind"
+  | "mental_overload"
+  | "cant_resume"
+  | "forget_important"
+  | "freeze_volume";
 
 type PainMomentOption =
   | "deadline_rush"
   | "cant_start"
   | "didnt_recheck"
   | "missed_priority"
-  | "lost_focus"
   | "plan_fell_apart"
-  | "froze_from_volume"
-  | "forgot_schedule"
-  | "none";
+  | "froze_from_volume";
 
 type BiggestGapOption =
   | "record_only"
-  | "priority_hard"
-  | "plan_fell_apart"
-  | "still_procrastinate"
-  | "hard_to_understand"
-  | "replanning_is_annoying"
-  | "too_many_apps"
-  | "not_personal"
-  | "no_major_issue"
-  | "other";
+  | "priority_too_long"
+  | "plan_breaks"
+  | "hard_resume"
+  | "guilt_avoidance"
+  | "tool_maintenance";
 
-type SurveyStep = 1 | 2 | 3 | 4;
+type SurveyStep = 1 | 2 | 3 | 4 | 5;
 
 type SurveyStage = SurveyStep | "done" | null;
 
@@ -88,8 +82,8 @@ type SurveyDraft = {
   painMoment: PainMomentOption | "";
   currentMethods: SurveyMethod[];
   currentMethodsOther: string;
-  biggestGapSelections: BiggestGapOption[];
-  biggestGapOther: string;
+  branchChoice: string;
+  biggestGap: BiggestGapOption[];
 };
 
 type SurveyStorage = {
@@ -110,6 +104,7 @@ type LegacySurveyDraft = Partial<SurveyDraft> & {
   biggestGap?: string;
   biggestGapSelections?: BiggestGapOption[];
   biggestGapOther?: string;
+  branchChoice?: string;
 };
 
 type RegisterRequestPayload = {
@@ -127,9 +122,17 @@ type SurveyRequestPayload = {
   painMoment: string;
   currentMethods: SurveyMethod[];
   currentMethodsOther: string;
+  branchTarget: SurveyBranchTarget;
+  branchChoice: string;
   biggestGap: string;
   completed: boolean;
 };
+
+type SurveyBranchTarget =
+  | "adhd_app"
+  | "ai"
+  | "none"
+  | "general_methods";
 
 type RestoredSurveyState = {
   contactMode: ContactMode;
@@ -148,12 +151,12 @@ const thoughtCategoryOptions: {
   id: ThoughtCategoryOption;
   label: string;
 }[] = [
-  { id: "work", label: "일" },
-  { id: "study", label: "공부" },
-  { id: "life_management", label: "생활관리" },
-  { id: "relationships", label: "인간관계" },
-  { id: "self_improvement", label: "자기계발" },
-  { id: "other", label: "기타" },
+  { id: "cant_start", label: "해야 할 일은 아는데 시작을 못 해요" },
+  { id: "time_blind", label: "시간이 어떻게 사라지는지 모르겠어요" },
+  { id: "mental_overload", label: "머릿속이 복잡해서 멈춰버려요" },
+  { id: "cant_resume", label: "한 번 흐트러지면 다시 못 돌아오겠어요" },
+  { id: "forget_important", label: "중요한 걸 자꾸 놓치거나 잊어요" },
+  { id: "freeze_volume", label: "해야 할 일이 너무 많아 보여서 그냥 멈춰 있어요" },
 ];
 
 const painMomentOptions: { id: PainMomentOption; label: string }[] = [
@@ -167,7 +170,7 @@ const painMomentOptions: { id: PainMomentOption; label: string }[] = [
   },
   {
     id: "didnt_recheck",
-    label: "할 일을 적어뒀지만 다시 확인하지 않았어요",
+    label: "적어뒀지만 다시 확인하지 않았어요",
   },
   {
     id: "missed_priority",
@@ -175,7 +178,7 @@ const painMomentOptions: { id: PainMomentOption; label: string }[] = [
   },
   {
     id: "plan_fell_apart",
-    label: "계획은 세웠지만 하루가 지나면 흐트러졌어요",
+    label: "계획은 세웠지만 금방 흐트러졌어요",
   },
   {
     id: "froze_from_volume",
@@ -184,40 +187,51 @@ const painMomentOptions: { id: PainMomentOption; label: string }[] = [
 ];
 
 const surveyOptions: { id: SurveyMethod; label: string }[] = [
-  { id: "endure", label: "그냥 버티고 있어요" },
-  { id: "notes", label: "메모/투두앱을 써요" },
-  { id: "calendar", label: "캘린더/알람을 써요" },
-  { id: "ai", label: "AI를 써요" },
-  { id: "support", label: "약/상담/주변 도움을 받아요" },
-  { id: "other", label: "기타" },
+  { id: "adhd_app", label: "Tiimo, Structured 같은 ADHD용 앱을 써요" },
+  { id: "notes", label: "일반 메모나 간단한 투두앱을 써요" },
+  { id: "calendar", label: "캘린더나 알람을 써요" },
+  { id: "ai", label: "AI에게 정리하거나 물어봐요" },
+  { id: "support", label: "약, 상담, 주변 도움을 받아요" },
+  { id: "none", label: "따로 쓰는 방법 없이 그냥 버텨요" },
 ];
+
+const primaryMethodOptions = [
+  { id: "paper_notes", label: "종이/메모앱에 적어요" },
+  { id: "todo_app", label: "일반 투두앱을 써요" },
+  { id: "adhd_app", label: "ADHD용 앱을 써요" },
+  { id: "calendar_alarm", label: "캘린더/알람을 써요" },
+  { id: "ai", label: "AI를 써요" },
+  { id: "human_help", label: "사람 도움에 가장 많이 의지해요" },
+] as const;
 
 const biggestGapOptions: { id: BiggestGapOption; label: string }[] = [
   {
     id: "record_only",
-    label: "적어두기만 하고 실제로 시작하게 되지는 않았어요",
+    label: "적어두기만 하고 실제 시작으로 이어지지 않아요",
   },
   {
-    id: "priority_hard",
-    label: "할 일이 너무 많을 때 우선순위를 정하기 어려웠어요",
+    id: "priority_too_long",
+    label: "무엇부터 할지 정하는 데 너무 오래 걸려요",
   },
   {
-    id: "plan_fell_apart",
-    label: "계획을 세워도 금방 흐트러졌어요",
+    id: "plan_breaks",
+    label: "계획이 조금만 틀어져도 금방 무너져요",
   },
   {
-    id: "hard_to_understand",
-    label: "내가 왜 자꾸 미루는지 파악하기 어려웠어요",
+    id: "hard_resume",
+    label: "중간에 끊기면 다시 이어붙이기 어려워요",
   },
   {
-    id: "replanning_is_annoying",
-    label: "상황이 바뀌면 계획을 다시 짜기 귀찮았어요",
+    id: "guilt_avoidance",
+    label: "밀린 걸 보면 죄책감이 커져 더 피하게 돼요",
   },
   {
-    id: "other",
-    label: "기타",
+    id: "tool_maintenance",
+    label: "도구를 유지하는 것 자체가 번거로워요",
   },
 ];
+
+type SurveyBranchOption = { id: string; label: string };
 
 const valueProps = [
   {
@@ -390,53 +404,40 @@ function createInitialSurveyDraft(): SurveyDraft {
     painMoment: "",
     currentMethods: [],
     currentMethodsOther: "",
-    biggestGapSelections: [],
-    biggestGapOther: "",
+    branchChoice: "",
+    biggestGap: [],
   };
 }
 
 function getSurveyStepError(step: SurveyStep, draft: SurveyDraft) {
   if (step === 1) {
     if (!draft.thoughtCategory) {
-      return "가장 생각을 정리하기 어려운 카테고리를 골라주세요.";
-    }
-
-    if (
-      draft.thoughtCategory === "other" &&
-      !draft.thoughtCategoryOther.trim()
-    ) {
-      return "기타를 선택하셨다면 내용을 함께 적어주세요.";
+      return "가장 자주 막히는 순간을 골라주세요.";
     }
   }
 
   if (step === 2 && !draft.painMoment) {
-    return "최근 2주 동안 가장 힘들었던 순간을 하나 골라주세요.";
+    return "최근 2주 동안 가장 자주 있었던 일을 하나 골라주세요.";
   }
 
   if (step === 3) {
     if (draft.currentMethods.length === 0) {
       return "지금 버티는 방법을 한 가지 이상 골라주세요.";
     }
-
-    if (
-      draft.currentMethods.includes("other") &&
-      !draft.currentMethodsOther.trim()
-    ) {
-      return "기타를 선택하셨다면 내용을 함께 적어주세요.";
-    }
   }
 
   if (step === 4) {
-    if (draft.biggestGapSelections.length === 0) {
-      return "지금 방법에서 가장 아쉬운 점을 한 가지 이상 골라주세요.";
+    if (!draft.branchChoice) {
+      return "가장 많이 의지하는 방식을 하나 골라주세요.";
     }
 
-    if (
-      draft.biggestGapSelections.includes("other") &&
-      !draft.biggestGapOther.trim()
-    ) {
-      return "기타를 선택하셨다면 내용을 함께 적어주세요.";
+    if (!primaryMethodOptions.some((option) => option.id === draft.branchChoice)) {
+      return "가장 많이 의지하는 방식을 하나 골라주세요.";
     }
+  }
+
+  if (step === 5 && draft.biggestGap.length === 0) {
+    return "현재 방식의 한계를 한 가지 이상 골라주세요.";
   }
 
   return null;
@@ -456,6 +457,21 @@ function parseSingleChoice<T extends string>(
   return matchedOption?.id ?? "";
 }
 
+function parseSurveyMethods(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (item === "endure") {
+      return ["none" as SurveyMethod];
+    }
+
+    const matchedOption = surveyOptions.find((option) => option.id === item);
+    return matchedOption ? [matchedOption.id] : [];
+  });
+}
+
 function parseChoiceArray<T extends string>(
   options: { id: T; label: string }[],
   value: unknown,
@@ -464,58 +480,39 @@ function parseChoiceArray<T extends string>(
     return [];
   }
 
-  return value.flatMap((item) => {
-    const matchedOption = options.find((option) => option.id === item);
-    return matchedOption ? [matchedOption.id] : [];
-  });
+  return Array.from(
+    new Set(
+      value.flatMap((item) => {
+        const matchedOption = options.find((option) => option.id === item);
+        return matchedOption ? [matchedOption.id] : [];
+      }),
+    ),
+  );
 }
 
-function parseBiggestGapFallback(value: unknown): {
-  biggestGapSelections: BiggestGapOption[];
-  biggestGapOther: string;
-} {
-  if (typeof value !== "string" || !value.trim()) {
-    return {
-      biggestGapSelections: [] as BiggestGapOption[],
-      biggestGapOther: "",
-    };
+function normalizeBranchChoice(branchChoice: unknown) {
+  return parseSingleChoice(primaryMethodOptions as unknown as SurveyBranchOption[], branchChoice);
+}
+
+function parseBiggestGapChoices(value: unknown) {
+  if (Array.isArray(value)) {
+    return parseChoiceArray(biggestGapOptions, value);
   }
 
-  const parts = value
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
     .split("|")
     .map((part) => part.trim())
-    .filter(Boolean);
-
-  const selections: BiggestGapOption[] = [];
-  let biggestGapOther = "";
-
-  for (const part of parts.length > 0 ? parts : [value.trim()]) {
-    if (part.startsWith("기타:")) {
-      selections.push("other");
-      biggestGapOther = part.slice(3).trim();
-      continue;
-    }
-
-    const matchedOption = biggestGapOptions.find(
-      (option) => option.id === part || option.label === part,
-    );
-
-    if (matchedOption) {
-      selections.push(matchedOption.id);
-    }
-  }
-
-  if (selections.length === 0 && !biggestGapOther) {
-    return {
-      biggestGapSelections: ["other"] as BiggestGapOption[],
-      biggestGapOther: value.trim(),
-    };
-  }
-
-  return {
-    biggestGapSelections: Array.from(new Set(selections)),
-    biggestGapOther,
-  };
+    .flatMap((part) => {
+      const matched = biggestGapOptions.find(
+        (option) => option.id === part || option.label === part,
+      );
+      return matched ? [matched.id] : [];
+    })
+    .filter((item, index, items) => items.indexOf(item) === index);
 }
 
 function normalizeSurveyDraft(savedDraft: LegacySurveyDraft | null): SurveyDraft {
@@ -533,58 +530,30 @@ function normalizeSurveyDraft(savedDraft: LegacySurveyDraft | null): SurveyDraft
   const normalizedCurrentStep =
     savedDraft.currentStep === 2 ||
     savedDraft.currentStep === 3 ||
-    savedDraft.currentStep === 4
+    savedDraft.currentStep === 4 ||
+    savedDraft.currentStep === 5
       ? savedDraft.currentStep
       : 1;
 
   const currentStep: SurveyStep = thoughtCategory ? normalizedCurrentStep : 1;
 
-  const currentMethods = parseChoiceArray(surveyOptions, savedDraft.currentMethods);
-  const parsedBiggestGap: {
-    biggestGapSelections: BiggestGapOption[];
-    biggestGapOther: string;
-  } =
-    parseChoiceArray(biggestGapOptions, savedDraft.biggestGapSelections).length > 0
-      ? {
-          biggestGapSelections: parseChoiceArray(
-            biggestGapOptions,
-            savedDraft.biggestGapSelections,
-          ),
-          biggestGapOther:
-            typeof savedDraft.biggestGapOther === "string"
-              ? savedDraft.biggestGapOther
-              : "",
-        }
-      : parseBiggestGapFallback(savedDraft.biggestGap ?? "");
-
-  const biggestGapSelections: BiggestGapOption[] =
-    parsedBiggestGap.biggestGapSelections.includes("no_major_issue")
-      ? ["no_major_issue"]
-      : parsedBiggestGap.biggestGapSelections.filter(
-          (item, index, items) => items.indexOf(item) === index,
-        );
+  const currentMethods = parseSurveyMethods(savedDraft.currentMethods);
+  const branchChoice = normalizeBranchChoice(savedDraft.branchChoice ?? "");
+  const biggestGap = parseBiggestGapChoices(
+    savedDraft.biggestGapSelections ?? savedDraft.biggestGap ?? "",
+  );
 
   return {
     currentStep,
     thoughtCategory,
-    thoughtCategoryOther:
-      thoughtCategory === "other" &&
-      typeof savedDraft.thoughtCategoryOther === "string"
-        ? savedDraft.thoughtCategoryOther
-        : "",
+    thoughtCategoryOther: "",
     painMoment: parseSingleChoice(painMomentOptions, savedDraft.painMoment) as
       | PainMomentOption
       | "",
     currentMethods,
-    currentMethodsOther:
-      currentMethods.includes("other") &&
-      typeof savedDraft.currentMethodsOther === "string"
-        ? savedDraft.currentMethodsOther
-        : "",
-    biggestGapSelections,
-    biggestGapOther: biggestGapSelections.includes("other")
-      ? parsedBiggestGap.biggestGapOther
-      : "",
+    currentMethodsOther: "",
+    branchChoice,
+    biggestGap,
   };
 }
 
@@ -595,19 +564,6 @@ function getChoiceLabel<T extends string>(
   return options.find((option) => option.id === id)?.label ?? "";
 }
 
-function serializeBiggestGap(draft: SurveyDraft) {
-  return draft.biggestGapSelections
-    .map((selection) => {
-      if (selection === "other") {
-        return `기타: ${draft.biggestGapOther.trim()}`;
-      }
-
-      return getChoiceLabel(biggestGapOptions, selection);
-    })
-    .filter(Boolean)
-    .join(" | ");
-}
-
 function getThoughtCategoryEventProps(draft: SurveyDraft) {
   if (!draft.thoughtCategory) {
     return {};
@@ -615,10 +571,41 @@ function getThoughtCategoryEventProps(draft: SurveyDraft) {
 
   return {
     thought_category: draft.thoughtCategory,
-    ...(draft.thoughtCategory === "other" && draft.thoughtCategoryOther.trim()
-      ? { thought_category_other: draft.thoughtCategoryOther.trim() }
-      : {}),
   };
+}
+
+function getSurveyBranchTargetFromChoice(
+  branchChoice: string,
+  methods: SurveyMethod[],
+) {
+  if (branchChoice === "adhd_app") {
+    return "adhd_app" as const;
+  }
+
+  if (branchChoice === "ai") {
+    return "ai" as const;
+  }
+
+  if (methods.includes("adhd_app")) {
+    return "adhd_app" as const;
+  }
+
+  if (methods.includes("ai")) {
+    return "ai" as const;
+  }
+
+  if (methods.includes("none")) {
+    return "none" as const;
+  }
+
+  return "general_methods" as const;
+}
+
+function serializeBiggestGapChoices(choices: BiggestGapOption[]) {
+  return choices
+    .map((choice) => getChoiceLabel(biggestGapOptions, choice))
+    .filter(Boolean)
+    .join(" | ");
 }
 
 function createDefaultSurveyState(): RestoredSurveyState {
@@ -696,14 +683,23 @@ function createSurveySavePayload(
     thoughtCategory: draft.thoughtCategory
       ? getChoiceLabel(thoughtCategoryOptions, draft.thoughtCategory)
       : "",
-    thoughtCategoryOther:
-      draft.thoughtCategory === "other" ? draft.thoughtCategoryOther.trim() : "",
+    thoughtCategoryOther: "",
     painMoment: draft.painMoment
       ? getChoiceLabel(painMomentOptions, draft.painMoment)
       : "",
     currentMethods: draft.currentMethods,
     currentMethodsOther: draft.currentMethodsOther.trim(),
-    biggestGap: serializeBiggestGap(draft),
+    branchTarget: getSurveyBranchTargetFromChoice(
+      draft.branchChoice,
+      draft.currentMethods,
+    ),
+    branchChoice: draft.branchChoice
+      ? getChoiceLabel(
+          primaryMethodOptions as unknown as SurveyBranchOption[],
+          draft.branchChoice,
+        )
+      : "",
+    biggestGap: serializeBiggestGapChoices(draft.biggestGap),
     completed,
   };
 }
@@ -1097,7 +1093,7 @@ export default function Home() {
 
     const currentStep = surveyStage;
 
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       setSurveyError(null);
       setIsSurveyComplete(true);
       setSurveyStage("done");
@@ -1105,10 +1101,15 @@ export default function Home() {
       track("survey_completed", {
         submission_key: submissionKey,
         ...getThoughtCategoryEventProps(surveyDraft),
+        branch_target: getSurveyBranchTargetFromChoice(
+          surveyDraft.branchChoice,
+          surveyDraft.currentMethods,
+        ),
+        branch_choice: surveyDraft.branchChoice,
       });
 
       void queueSurveySave(
-        createSurveySavePayload(submissionKey, 4, surveyDraft, true),
+        createSurveySavePayload(submissionKey, 5, surveyDraft, true),
         { silent: true },
       );
       return;
@@ -1118,7 +1119,7 @@ export default function Home() {
     setSurveyError(null);
     setStep(nextStep);
     setSurveyStatusMessage(
-      nextStep === 4
+      nextStep === 5
         ? "제출 버튼을 누르면 답변이 저장됩니다."
         : "다음 버튼을 누르면 답변이 저장됩니다.",
     );
@@ -1126,6 +1127,11 @@ export default function Home() {
       step: currentStep,
       next_step: nextStep,
       ...getThoughtCategoryEventProps(surveyDraft),
+      branch_target: getSurveyBranchTargetFromChoice(
+        surveyDraft.branchChoice,
+        surveyDraft.currentMethods,
+      ),
+      branch_choice: surveyDraft.branchChoice,
     });
 
     void queueSurveySave(
@@ -1138,7 +1144,8 @@ export default function Home() {
     if (
       surveyStage === 2 ||
       surveyStage === 3 ||
-      surveyStage === 4
+      surveyStage === 4 ||
+      surveyStage === 5
     ) {
       setStep((surveyStage - 1) as SurveyStep);
     }
@@ -1168,39 +1175,33 @@ export default function Home() {
       const nextMethods = hasMethod
         ? draft.currentMethods.filter((item) => item !== method)
         : [...draft.currentMethods, method];
+      const nextBranchChoice = normalizeBranchChoice(draft.branchChoice);
 
       return {
         ...draft,
         currentMethods: nextMethods,
-        currentMethodsOther:
-          nextMethods.includes("other") ? draft.currentMethodsOther : "",
+        currentMethodsOther: "",
+        branchChoice: nextBranchChoice,
       };
     });
   }
 
+  function toggleBranchChoice(branchChoice: string) {
+    updateSurveyDraft((draft) => ({
+      ...draft,
+      branchChoice,
+    }));
+  }
+
   function toggleBiggestGap(option: BiggestGapOption) {
     updateSurveyDraft((draft) => {
-      const hasOption = draft.biggestGapSelections.includes(option);
-      let biggestGapSelections: BiggestGapOption[];
-
-      if (option === "no_major_issue") {
-        biggestGapSelections = hasOption ? [] : ["no_major_issue"];
-      } else {
-        const withoutNoMajorIssue = draft.biggestGapSelections.filter(
-          (item) => item !== "no_major_issue",
-        );
-
-        biggestGapSelections = hasOption
-          ? withoutNoMajorIssue.filter((item) => item !== option)
-          : [...withoutNoMajorIssue, option];
-      }
+      const hasOption = draft.biggestGap.includes(option);
 
       return {
         ...draft,
-        biggestGapSelections,
-        biggestGapOther: biggestGapSelections.includes("other")
-          ? draft.biggestGapOther
-          : "",
+        biggestGap: hasOption
+          ? draft.biggestGap.filter((item) => item !== option)
+          : [...draft.biggestGap, option],
       };
     });
   }
@@ -1618,7 +1619,7 @@ export default function Home() {
             ) : (
               <div className={styles.modalContent}>
                 <div className={styles.modalHeader}>
-                  <p className={styles.modalStep}>{surveyStage}/4</p>
+                  <p className={styles.modalStep}>{surveyStage}/5</p>
                   <button
                     type="button"
                     className={styles.modalCloseButton}
@@ -1631,7 +1632,7 @@ export default function Home() {
                 {surveyStage === 1 ? (
                   <>
                     <h3 id="survey-modal-title" className={styles.modalTitle}>
-                      가장 생각을 정리하기 어려운 카테고리는 무엇인가요?
+                      가장 자주 막히는 순간은 언제인가요?
                     </h3>
                     <p className={styles.modalBody}>
                       가장 가까운 답변 하나를 골라주세요.
@@ -1655,10 +1656,6 @@ export default function Home() {
                                 updateSurveyDraft((draft) => ({
                                   ...draft,
                                   thoughtCategory: option.id,
-                                  thoughtCategoryOther:
-                                    option.id === "other"
-                                      ? draft.thoughtCategoryOther
-                                      : "",
                                 }))
                               }
                             />
@@ -1667,30 +1664,13 @@ export default function Home() {
                         );
                       })}
                     </div>
-                    {surveyDraft.thoughtCategory === "other" ? (
-                      <label className={styles.modalField}>
-                        <span className={styles.modalLabel}>기타 내용</span>
-                        <input
-                          className={styles.modalInput}
-                          type="text"
-                          value={surveyDraft.thoughtCategoryOther}
-                          onChange={(event) =>
-                            updateSurveyDraft((draft) => ({
-                              ...draft,
-                              thoughtCategoryOther: event.target.value,
-                            }))
-                          }
-                          placeholder="직접 적어주세요"
-                        />
-                      </label>
-                    ) : null}
                   </>
                 ) : null}
 
                 {surveyStage === 2 ? (
                   <>
                     <h3 id="survey-modal-title" className={styles.modalTitle}>
-                      최근 2주 동안 가장 힘들었던 순간이 있었나요?
+                      최근 2주 동안 가장 자주 있었던 일은 무엇인가요?
                     </h3>
                     <p className={styles.modalBody}>
                       가장 가까운 답변 하나를 골라주세요.
@@ -1728,7 +1708,7 @@ export default function Home() {
                 {surveyStage === 3 ? (
                   <>
                     <h3 id="survey-modal-title" className={styles.modalTitle}>
-                      지금은 어떻게 버티고 있나요?
+                      지금은 주로 어떻게 버티고 있나요?
                     </h3>
                     <p className={styles.modalBody}>
                       해당되는 걸 모두 골라주세요.
@@ -1756,39 +1736,53 @@ export default function Home() {
                         );
                       })}
                     </div>
-                    {surveyDraft.currentMethods.includes("other") ? (
-                      <label className={styles.modalField}>
-                        <span className={styles.modalLabel}>기타 내용</span>
-                        <input
-                          className={styles.modalInput}
-                          type="text"
-                          value={surveyDraft.currentMethodsOther}
-                          onChange={(event) =>
-                            updateSurveyDraft((draft) => ({
-                              ...draft,
-                              currentMethodsOther: event.target.value,
-                            }))
-                          }
-                          placeholder="직접 적어주세요"
-                        />
-                      </label>
-                    ) : null}
                   </>
                 ) : null}
 
                 {surveyStage === 4 ? (
                   <>
                     <h3 id="survey-modal-title" className={styles.modalTitle}>
-                      지금 방법에서 가장 아쉬운 점은 뭔가요?
+                      그중 가장 많이 의지하는 한 가지는 무엇인가요?
+                    </h3>
+                    <p className={styles.modalBody}>
+                      가장 가까운 답변 하나를 골라주세요.
+                    </p>
+                    <div className={styles.modalCheckboxGroup}>
+                      {primaryMethodOptions.map((option) => {
+                        const checked = surveyDraft.branchChoice === option.id;
+
+                        return (
+                          <label
+                            key={option.id}
+                            className={`${styles.modalCheckbox} ${
+                              checked ? styles.modalCheckboxChecked : ""
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="branch-choice"
+                              checked={checked}
+                              onChange={() => toggleBranchChoice(option.id)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : null}
+
+                {surveyStage === 5 ? (
+                  <>
+                    <h3 id="survey-modal-title" className={styles.modalTitle}>
+                      현재 방식의 한계는 무엇인가요?
                     </h3>
                     <p className={styles.modalBody}>
                       해당되는 걸 모두 골라주세요.
                     </p>
                     <div className={styles.modalCheckboxGroup}>
                       {biggestGapOptions.map((option) => {
-                        const checked = surveyDraft.biggestGapSelections.includes(
-                          option.id,
-                        );
+                        const checked = surveyDraft.biggestGap.includes(option.id);
 
                         return (
                           <label
@@ -1799,6 +1793,7 @@ export default function Home() {
                           >
                             <input
                               type="checkbox"
+                              name="biggest-gap"
                               checked={checked}
                               onChange={() => toggleBiggestGap(option.id)}
                             />
@@ -1807,23 +1802,6 @@ export default function Home() {
                         );
                       })}
                     </div>
-                    {surveyDraft.biggestGapSelections.includes("other") ? (
-                      <label className={styles.modalField}>
-                        <span className={styles.modalLabel}>기타 내용</span>
-                        <input
-                          className={styles.modalInput}
-                          type="text"
-                          value={surveyDraft.biggestGapOther}
-                          onChange={(event) =>
-                            updateSurveyDraft((draft) => ({
-                              ...draft,
-                              biggestGapOther: event.target.value,
-                            }))
-                          }
-                          placeholder="직접 적어주세요"
-                        />
-                      </label>
-                    ) : null}
                   </>
                 ) : null}
 
@@ -1840,7 +1818,8 @@ export default function Home() {
                 <div className={styles.modalFooter}>
                   {surveyStage === 2 ||
                   surveyStage === 3 ||
-                  surveyStage === 4 ? (
+                  surveyStage === 4 ||
+                  surveyStage === 5 ? (
                     <button
                       type="button"
                       className={styles.modalSecondaryButton}
@@ -1858,7 +1837,7 @@ export default function Home() {
                     onClick={() => void handleSurveyNext()}
                     disabled={isRegistrationSaving}
                   >
-                    {surveyStage === 4 ? "제출하기" : "다음"}
+                    {surveyStage === 5 ? "제출하기" : "다음"}
                   </button>
                 </div>
               </div>

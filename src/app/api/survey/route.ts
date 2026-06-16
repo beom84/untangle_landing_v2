@@ -8,6 +8,8 @@ type SurveyBody = {
   painMoment?: string;
   currentMethods?: string[];
   currentMethodsOther?: string;
+  branchTarget?: string;
+  branchChoice?: string;
   biggestGap?: string;
   completed?: boolean;
 };
@@ -30,6 +32,8 @@ export async function POST(request: Request) {
     painMoment = "",
     currentMethods = [],
     currentMethodsOther = "",
+    branchTarget = "",
+    branchChoice = "",
     biggestGap = "",
     completed = false,
   } = body;
@@ -52,6 +56,8 @@ export async function POST(request: Request) {
       painMoment,
       currentMethods,
       currentMethodsOther,
+      branchTarget,
+      branchChoice,
       biggestGap,
       surveyCompleted: completed,
       surveyCompletedAt: completed ? updatedAt : "",

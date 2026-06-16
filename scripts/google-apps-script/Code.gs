@@ -9,6 +9,8 @@ const HEADERS = [
   "painMoment",
   "currentMethods",
   "currentMethodsOther",
+  "branchTarget",
+  "branchChoice",
   "biggestGap",
   "surveyCompleted",
   "surveyCompletedAt",
@@ -119,6 +121,11 @@ function upsertSurvey_(sheet, payload) {
   record.painMoment = payload.painMoment || "";
   record.currentMethods = normalizeMethods_(payload.currentMethods);
   record.currentMethodsOther = payload.currentMethodsOther || "";
+  record.branchTarget = normalizeBranchTarget_(
+    payload.branchTarget,
+    payload.currentMethods,
+  );
+  record.branchChoice = payload.branchChoice || "";
   record.biggestGap = payload.biggestGap || "";
   record.surveyCompleted = Boolean(payload.surveyCompleted);
   record.surveyCompletedAt = payload.surveyCompletedAt || "";
@@ -145,6 +152,35 @@ function normalizeMethods_(value) {
   }
 
   return value.join(", ");
+}
+
+function normalizeBranchTarget_(branchTarget, currentMethods) {
+  const allowed = ["adhd_app", "ai", "none", "general_methods"];
+  if (typeof branchTarget === "string" && allowed.indexOf(branchTarget) !== -1) {
+    return branchTarget;
+  }
+
+  return computeBranchTarget_(currentMethods);
+}
+
+function computeBranchTarget_(currentMethods) {
+  if (!Array.isArray(currentMethods)) {
+    return "general_methods";
+  }
+
+  if (currentMethods.indexOf("adhd_app") !== -1) {
+    return "adhd_app";
+  }
+
+  if (currentMethods.indexOf("ai") !== -1) {
+    return "ai";
+  }
+
+  if (currentMethods.indexOf("none") !== -1 || currentMethods.indexOf("endure") !== -1) {
+    return "none";
+  }
+
+  return "general_methods";
 }
 
 function findRowIndexBySubmissionKey_(sheet, submissionKey) {
