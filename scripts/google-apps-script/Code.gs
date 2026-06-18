@@ -77,14 +77,44 @@ function getSheet_() {
 }
 
 function ensureHeaders_(sheet) {
-  const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
-  const currentHeaders = headerRange.getValues()[0];
-  const needsReset = HEADERS.some((header, index) => currentHeaders[index] !== header);
+  const lastRow = sheet.getLastRow();
+  const lastColumn = Math.max(sheet.getLastColumn(), HEADERS.length);
+  const currentHeaders = sheet
+    .getRange(1, 1, 1, lastColumn)
+    .getValues()[0]
+    .map(normalizeHeader_);
+  const needsMigration =
+    lastColumn !== HEADERS.length ||
+    HEADERS.some((header, index) => currentHeaders[index] !== header);
 
-  if (needsReset) {
-    headerRange.setValues([HEADERS]);
+  if (!needsMigration) {
     sheet.setFrozenRows(1);
+    return;
   }
+
+  const existingRows =
+    lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues() : [];
+  const currentHeaderIndex = currentHeaders.reduce((lookup, header, index) => {
+    if (header && lookup[header] === undefined) {
+      lookup[header] = index;
+    }
+    return lookup;
+  }, {});
+  const migratedRows = existingRows.map((row) =>
+    HEADERS.map((header) => {
+      const columnIndex = currentHeaderIndex[header];
+      return columnIndex === undefined ? "" : row[columnIndex] ?? "";
+    }),
+  );
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+
+  if (migratedRows.length > 0) {
+    sheet.getRange(2, 1, migratedRows.length, HEADERS.length).setValues(migratedRows);
+  }
+
+  sheet.setFrozenRows(1);
 }
 
 function upsertRegistration_(sheet, payload) {
@@ -125,7 +155,7 @@ function upsertSurvey_(sheet, payload) {
     payload.branchTarget,
     payload.currentMethods,
   );
-  record.branchChoice = payload.branchChoice || "";
+  record.branchChoice = normalizeBranchChoice_(payload.branchChoice);
   record.biggestGap = payload.biggestGap || "";
   record.surveyCompleted = Boolean(payload.surveyCompleted);
   record.surveyCompletedAt = payload.surveyCompletedAt || "";
@@ -152,6 +182,10 @@ function normalizeMethods_(value) {
   }
 
   return value.join(", ");
+}
+
+function normalizeBranchChoice_(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeBranchTarget_(branchTarget, currentMethods) {
@@ -230,4 +264,8 @@ function jsonResponse_(data) {
   const output = ContentService.createTextOutput(JSON.stringify(data));
   output.setMimeType(ContentService.MimeType.JSON);
   return output;
+}
+
+function normalizeHeader_(value) {
+  return typeof value === "string" ? value.trim() : "";
 }

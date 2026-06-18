@@ -1003,7 +1003,7 @@ export default function Home() {
   function updateSurveyDraft(updater: (draft: SurveyDraft) => SurveyDraft) {
     setSurveyError(null);
     setSurveyStatusMessage(
-      surveyStage === 4
+      surveyStage === 5
         ? "제출 버튼을 누르면 답변이 저장됩니다."
         : "다음 버튼을 누르면 답변이 저장됩니다.",
     );
@@ -1187,10 +1187,21 @@ export default function Home() {
   }
 
   function toggleBranchChoice(branchChoice: string) {
-    updateSurveyDraft((draft) => ({
-      ...draft,
+    const nextDraft = {
+      ...surveyDraft,
       branchChoice,
-    }));
+    };
+
+    updateSurveyDraft(() => nextDraft);
+
+    if (!submissionKey || surveyStage !== 4) {
+      return;
+    }
+
+    void queueSurveySave(
+      createSurveySavePayload(submissionKey, 4, nextDraft, false),
+      { silent: true },
+    );
   }
 
   function toggleBiggestGap(option: BiggestGapOption) {
