@@ -120,7 +120,7 @@ type SurveyRequestPayload = {
   thoughtCategory: string;
   thoughtCategoryOther: string;
   painMoment: string;
-  currentMethods: SurveyMethod[];
+  currentMethods: string[];
   currentMethodsOther: string;
   branchTarget: SurveyBranchTarget;
   branchChoice: string;
@@ -608,6 +608,12 @@ function serializeBiggestGapChoices(choices: BiggestGapOption[]) {
     .join(" | ");
 }
 
+function serializeCurrentMethods(methods: SurveyMethod[]) {
+  return methods
+    .map((method) => getChoiceLabel(surveyOptions, method))
+    .filter(Boolean);
+}
+
 function createDefaultSurveyState(): RestoredSurveyState {
   const emptyDraft = createInitialSurveyDraft();
 
@@ -687,7 +693,7 @@ function createSurveySavePayload(
     painMoment: draft.painMoment
       ? getChoiceLabel(painMomentOptions, draft.painMoment)
       : "",
-    currentMethods: draft.currentMethods,
+    currentMethods: serializeCurrentMethods(draft.currentMethods),
     currentMethodsOther: draft.currentMethodsOther.trim(),
     branchTarget: getSurveyBranchTargetFromChoice(
       draft.branchChoice,
@@ -1170,20 +1176,27 @@ export default function Home() {
   }
 
   function toggleMethod(method: SurveyMethod) {
-    updateSurveyDraft((draft) => {
-      const hasMethod = draft.currentMethods.includes(method);
-      const nextMethods = hasMethod
-        ? draft.currentMethods.filter((item) => item !== method)
-        : [...draft.currentMethods, method];
-      const nextBranchChoice = normalizeBranchChoice(draft.branchChoice);
+    const hasMethod = surveyDraft.currentMethods.includes(method);
+    const nextMethods = hasMethod
+      ? surveyDraft.currentMethods.filter((item) => item !== method)
+      : [...surveyDraft.currentMethods, method];
+    const nextDraft = {
+      ...surveyDraft,
+      currentMethods: nextMethods,
+      currentMethodsOther: "",
+      branchChoice: normalizeBranchChoice(surveyDraft.branchChoice),
+    };
 
-      return {
-        ...draft,
-        currentMethods: nextMethods,
-        currentMethodsOther: "",
-        branchChoice: nextBranchChoice,
-      };
-    });
+    updateSurveyDraft(() => nextDraft);
+
+    if (!submissionKey || surveyStage !== 3) {
+      return;
+    }
+
+    void queueSurveySave(
+      createSurveySavePayload(submissionKey, 3, nextDraft, false),
+      { silent: true },
+    );
   }
 
   function toggleBranchChoice(branchChoice: string) {
@@ -1205,16 +1218,24 @@ export default function Home() {
   }
 
   function toggleBiggestGap(option: BiggestGapOption) {
-    updateSurveyDraft((draft) => {
-      const hasOption = draft.biggestGap.includes(option);
+    const hasOption = surveyDraft.biggestGap.includes(option);
+    const nextDraft = {
+      ...surveyDraft,
+      biggestGap: hasOption
+        ? surveyDraft.biggestGap.filter((item) => item !== option)
+        : [...surveyDraft.biggestGap, option],
+    };
 
-      return {
-        ...draft,
-        biggestGap: hasOption
-          ? draft.biggestGap.filter((item) => item !== option)
-          : [...draft.biggestGap, option],
-      };
-    });
+    updateSurveyDraft(() => nextDraft);
+
+    if (!submissionKey || surveyStage !== 5) {
+      return;
+    }
+
+    void queueSurveySave(
+      createSurveySavePayload(submissionKey, 5, nextDraft, false),
+      { silent: true },
+    );
   }
 
   const isPhoneMode = contactMode === "phone";
