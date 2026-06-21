@@ -4,6 +4,7 @@ import { LANDING_VARIANT, type LandingVariant } from "@/lib/experiment";
 type RegisterBody = {
   contactMode: ContactMode;
   value: string;
+  email?: string;
   submissionKey?: string;
   variant?: LandingVariant;
 };
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
   const {
     contactMode,
     value,
+    email = "",
     submissionKey: providedSubmissionKey,
     variant = LANDING_VARIANT,
   } = body;
@@ -32,6 +34,14 @@ export async function POST(request: Request) {
   const normalizedValue = normalizeContactValue(contactMode, value);
   if (!normalizedValue) {
     return Response.json({ error: "Invalid contact value" }, { status: 400 });
+  }
+
+  const trimmedEmail = email.trim();
+  const normalizedEmail = trimmedEmail
+    ? normalizeContactValue("email", trimmedEmail)
+    : "";
+  if (trimmedEmail && !normalizedEmail) {
+    return Response.json({ error: "Invalid email" }, { status: 400 });
   }
 
   const submissionKey = providedSubmissionKey?.trim() || crypto.randomUUID();
@@ -47,6 +57,7 @@ export async function POST(request: Request) {
       contactMode,
       contactValue: normalizedValue,
       value: normalizedValue,
+      email: normalizedEmail,
       variant,
     }),
   });
