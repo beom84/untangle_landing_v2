@@ -1,5 +1,34 @@
+:root {
+  /* v3 design tokens (from docs/v3/design.pen) */
+  --bg: #fbfaf6;
+  --surface: #ffffff;
+  --border-soft: #efeae1;
+  --primary: #f4a87b;
+  --primary-strong: #cc7a47;
+  --secondary: #68a084;
+  --sage: #cfe3d5;
+  --sage-soft: #e6efe9;
+  --text-primary: #2a3a2f;
+  --text-secondary: #66756b;
+  --text-on-dark: #21302a;
+
+  /* derived / section-specific */
+  --who-bg: #2c503b;
+  --peach-soft: #fdefe4;
+  --field-border: #ddd3c2;
+  --diff-card-border: #e4dccd;
+
+  --content-max: 480px;
+
+  --font-head-stack: "Gowun Batang", "Apple SD Gothic Neo", "Noto Serif KR",
+    serif;
+  --font-body-stack: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -10,10 +39,10 @@ body {
 
 body {
   min-height: 100vh;
-  color: #161616;
-  background: #fff;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg);
+  font-family: var(--font-body-stack);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -39,4 +68,16 @@ input,
 textarea,
 select {
   font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
 }
